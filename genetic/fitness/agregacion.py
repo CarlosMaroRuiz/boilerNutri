@@ -44,7 +44,7 @@ def calcular_fitness(individuo, config_evaluacion, ingredientes_data, restriccio
     # Calcular cada componente del fitness
     componentes = {}
     
-    # 1. Discrepancia nutricional
+    # 1. Discrepancia nutricional (PRIORIDAD ALTA)
     componentes["discrepancia_nutricional"] = calcular_discrepancia_nutricional(
         individuo, etapa, ingredientes_data
     )
@@ -74,8 +74,8 @@ def calcular_fitness(individuo, config_evaluacion, ingredientes_data, restriccio
         individuo, ingredientes_data, restricciones_usuario
     )
     
-    # Normalizar componentes
-    componentes_normalizados = normalizar_objetivos(componentes)
+    # Normalizar componentes (MEJORADO)
+    componentes_normalizados = normalizar_objetivos_mejorado(componentes)
     
     # Aplicar ponderaciones
     fitness = calcular_fitness_ponderado(componentes_normalizados, pesos)
@@ -85,9 +85,9 @@ def calcular_fitness(individuo, config_evaluacion, ingredientes_data, restriccio
     
     return fitness
 
-def normalizar_objetivos(componentes):
+def normalizar_objetivos_mejorado(componentes):
     """
-    Normaliza los valores de los objetivos para agregación
+    Normaliza los valores de los objetivos con factores mejorados
     
     Args:
         componentes: Diccionario con valores de cada objetivo
@@ -97,25 +97,26 @@ def normalizar_objetivos(componentes):
     """
     normalizados = {}
     
-    # Factores de normalización basados en rangos esperados
+    # Factores de normalización CORREGIDOS basados en rangos reales
     factores_normalizacion = {
-        "discrepancia_nutricional": 1.0,  # Ya está en rango 0-1
-        "costo": 15.0,  # Rango esperado 0-15 $/kg
-        "eficiencia": 2.5,  # Conversión alimenticia 1.0-2.5
-        "disponibilidad": 1.0,  # Ya está en rango 0-1
-        "tiempo": 100.0,  # Días hasta peso objetivo 0-100
-        "restricciones": 100.0  # Penalizaciones 0-100+
+        "discrepancia_nutricional": 2.0,  # Era 1.0 → Más sensible a discrepancias
+        "costo": 12.0,  # Era 15.0 → Ajustado al rango real $8-12/kg
+        "eficiencia": 2.2,  # Era 2.5 → Conversión alimenticia real 1.5-2.2
+        "disponibilidad": 1.0,  # Mantener en rango 0-1
+        "tiempo": 60.0,  # Era 100.0 → Días hasta peso objetivo más realista
+        "restricciones": 50.0  # Era 100.0 → Penalizaciones más moderadas
     }
     
     for objetivo, valor in componentes.items():
         factor = factores_normalizacion.get(objetivo, 1.0)
-        normalizados[objetivo] = min(1.0, valor / factor)
+        # Aplicar normalización con límite superior más estricto
+        normalizados[objetivo] = min(1.5, valor / factor)  # Era min(1.0, ...)
     
     return normalizados
 
 def calcular_fitness_ponderado(componentes_normalizados, pesos_personalizados=None):
     """
-    Calcula el fitness aplicando ponderaciones a los objetivos
+    Calcula el fitness aplicando ponderaciones MEJORADAS a los objetivos
     
     Args:
         componentes_normalizados: Diccionario con componentes normalizados
@@ -124,14 +125,14 @@ def calcular_fitness_ponderado(componentes_normalizados, pesos_personalizados=No
     Returns:
         Valor de fitness ponderado
     """
-    # Pesos por defecto
+    # Pesos por defecto REBALANCEADOS (nutrición prioritaria)
     pesos_default = {
-        "discrepancia_nutricional": 0.35,  # 35% - Más importante
-        "costo": 0.30,                     # 30% - Muy importante
-        "eficiencia": 0.15,                # 15% - Importante
-        "disponibilidad": 0.10,            # 10% - Moderadamente importante
-        "tiempo": 0.10,                    # 10% - Moderadamente importante
-        "restricciones": 1.0               # Peso completo para penalizaciones
+        "discrepancia_nutricional": 0.50,  # ERA 0.35 → AUMENTADO: Nutrición es crítica
+        "costo": 0.25,                     # ERA 0.30 → REDUCIDO: Menos peso al costo
+        "eficiencia": 0.15,                # MANTENER: Eficiencia importante
+        "disponibilidad": 0.05,            # ERA 0.10 → REDUCIDO: Menos crítico
+        "tiempo": 0.05,                    # ERA 0.10 → REDUCIDO: Menos crítico
+        "restricciones": 2.0               # ERA 1.0 → AUMENTADO: Penalizar más violaciones
     }
     
     # Usar pesos personalizados si se proporcionan
@@ -151,18 +152,25 @@ def calcular_fitness_ponderado(componentes_normalizados, pesos_personalizados=No
         if objetivo in componentes_normalizados:
             valor_normalizado = componentes_normalizados[objetivo]
             peso = pesos.get(objetivo, 0)
+            
+            # APLICAR PENALIZACIÓN CUADRÁTICA PARA DISCREPANCIA NUTRICIONAL
+            if objetivo == "discrepancia_nutricional" and valor_normalizado > 0.3:
+                # Penalización extra para discrepancias altas
+                valor_normalizado = valor_normalizado * (1 + valor_normalizado)
+            
             fitness += peso * valor_normalizado
     
-    # Restricciones (se suman con peso completo)
+    # Restricciones (se multiplican por factor alto)
     if "restricciones" in componentes_normalizados:
-        fitness += componentes_normalizados["restricciones"]
+        peso_restricciones = pesos.get("restricciones", 2.0)
+        fitness += peso_restricciones * componentes_normalizados["restricciones"]
     
     return fitness
 
 def calcular_fitness_adaptativo(individuo, config_evaluacion, ingredientes_data, 
                                fase_algoritmo="inicial", restricciones_usuario=None):
     """
-    Calcula fitness con pesos adaptativos según la fase del algoritmo
+    Calcula fitness con pesos adaptativos MEJORADOS según la fase del algoritmo
     
     Args:
         individuo: Objeto individuo con porcentajes
@@ -174,28 +182,28 @@ def calcular_fitness_adaptativo(individuo, config_evaluacion, ingredientes_data,
     Returns:
         Valor de fitness adaptativo
     """
-    # Pesos según la fase del algoritmo
+    # Pesos MEJORADOS según la fase del algoritmo (nutrición siempre prioritaria)
     pesos_por_fase = {
         "inicial": {
-            "discrepancia_nutricional": 0.40,  # Mayor peso en nutrición
-            "costo": 0.25,
+            "discrepancia_nutricional": 0.55,  # ERA 0.40 → MÁS PESO a nutrición
+            "costo": 0.20,                     # ERA 0.25 → MENOS peso al costo
             "eficiencia": 0.15,
-            "disponibilidad": 0.10,
-            "tiempo": 0.10
+            "disponibilidad": 0.05,
+            "tiempo": 0.05
         },
         "intermedia": {
-            "discrepancia_nutricional": 0.35,
-            "costo": 0.30,                     # Aumenta peso del costo
+            "discrepancia_nutricional": 0.50,  # MANTENER alta prioridad nutricional
+            "costo": 0.25,                     # ERA 0.30 → Aumenta pero controlado
             "eficiencia": 0.15,
-            "disponibilidad": 0.10,
-            "tiempo": 0.10
+            "disponibilidad": 0.05,
+            "tiempo": 0.05
         },
         "final": {
-            "discrepancia_nutricional": 0.30,
-            "costo": 0.35,                     # Mayor peso en costo
-            "eficiencia": 0.20,                # Mayor peso en eficiencia
-            "disponibilidad": 0.10,
-            "tiempo": 0.05
+            "discrepancia_nutricional": 0.45,  # ERA 0.30 → MANTENER prioritario
+            "costo": 0.30,                     # ERA 0.35 → Costo importante pero no dominante
+            "eficiencia": 0.20,                # Aumentar peso en eficiencia
+            "disponibilidad": 0.03,
+            "tiempo": 0.02
         }
     }
     
@@ -340,14 +348,14 @@ def calcular_metricas_poblacion(poblacion):
     
     return metricas
 
-def detectar_convergencia(historico_fitness, ventana=20, tolerancia=1e-6):
+def detectar_convergencia(historico_fitness, ventana=25, tolerancia=5e-5):
     """
-    Detecta si el algoritmo ha convergido
+    Detecta si el algoritmo ha convergido (MEJORADO)
     
     Args:
         historico_fitness: Lista con el mejor fitness por generación
-        ventana: Número de generaciones a considerar
-        tolerancia: Tolerancia para considerar convergencia
+        ventana: Número de generaciones a considerar (AUMENTADO: era 20)
+        tolerancia: Tolerancia para considerar convergencia (AUMENTADO: era 1e-6)
         
     Returns:
         True si ha convergido, False en caso contrario
@@ -361,4 +369,42 @@ def detectar_convergencia(historico_fitness, ventana=20, tolerancia=1e-6):
     # Verificar si la mejora es menor que la tolerancia
     mejora = ultimas_generaciones[0] - ultimas_generaciones[-1]
     
-    return mejora < tolerancia
+    # MEJORA: También verificar que no haya variaciones significativas
+    varianza = sum((f - sum(ultimas_generaciones)/len(ultimas_generaciones))**2 
+                  for f in ultimas_generaciones) / len(ultimas_generaciones)
+    
+    return mejora < tolerancia and varianza < tolerancia * 10
+
+def diagnosticar_fitness(individuo, config_evaluacion, ingredientes_data):
+    """
+    NUEVA FUNCIÓN: Diagnostica los componentes del fitness para debugging
+    
+    Args:
+        individuo: Objeto individuo con porcentajes
+        config_evaluacion: Diccionario con configuración de evaluación
+        ingredientes_data: Lista de datos de ingredientes
+        
+    Returns:
+        Diccionario con diagnóstico detallado
+    """
+    from conocimiento.requerimientos import obtener_etapa
+    
+    edad_dias = config_evaluacion.get("edad_dias", 35)
+    etapa = obtener_etapa(edad_dias)
+    
+    # Calcular componentes individuales
+    discrepancia = calcular_discrepancia_nutricional(individuo, etapa, ingredientes_data)
+    costo = calcular_costo_total(individuo, ingredientes_data)
+    
+    print(f"\n🔍 DIAGNÓSTICO DE FITNESS:")
+    print(f"Edad: {edad_dias} días → Etapa: {etapa}")
+    print(f"Discrepancia nutricional: {discrepancia:.4f}")
+    print(f"Costo total: ${costo:.2f}/kg")
+    print(f"Fitness total: {individuo.fitness:.4f}")
+    
+    return {
+        "etapa": etapa,
+        "discrepancia": discrepancia,
+        "costo": costo,
+        "fitness": individuo.fitness
+    }

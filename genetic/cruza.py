@@ -322,10 +322,14 @@ def cruza_adaptativa(padre1, padre2, diversidad_poblacion, ingredientes_data=Non
         if random.random() < 0.5:
             return cruza_aritmetica(padre1, padre2, ingredientes_data, restricciones_usuario)
         else:
-            return cruza_blx_alpha(padre1, padre2, alpha=0.3, ingredientes_data, restricciones_usuario)
+            return cruza_blx_alpha(padre1, padre2, alpha=0.3, 
+                                 ingredientes_data=ingredientes_data, 
+                                 restricciones_usuario=restricciones_usuario)
     else:
         # Baja diversidad: promover exploración
-        return cruza_blx_alpha(padre1, padre2, alpha=0.8, ingredientes_data, restricciones_usuario)
+        return cruza_blx_alpha(padre1, padre2, alpha=0.8, 
+                             ingredientes_data=ingredientes_data, 
+                             restricciones_usuario=restricciones_usuario)
 
 def generar_multiple_hijos(padre1, padre2, num_hijos=2, ingredientes_data=None, restricciones_usuario=None):
     """
@@ -344,9 +348,13 @@ def generar_multiple_hijos(padre1, padre2, num_hijos=2, ingredientes_data=None, 
     hijos = []
     operadores = [
         lambda: cruza_aritmetica(padre1, padre2, ingredientes_data, restricciones_usuario),
-        lambda: cruza_blx_alpha(padre1, padre2, alpha=0.5, ingredientes_data, restricciones_usuario),
+        lambda: cruza_blx_alpha(padre1, padre2, alpha=0.5, 
+                               ingredientes_data=ingredientes_data, 
+                               restricciones_usuario=restricciones_usuario),
         lambda: cruza_un_punto(padre1, padre2, ingredientes_data, restricciones_usuario),
-        lambda: cruza_uniforme(padre1, padre2, prob_intercambio=0.5, ingredientes_data, restricciones_usuario)
+        lambda: cruza_uniforme(padre1, padre2, prob_intercambio=0.5, 
+                              ingredientes_data=ingredientes_data, 
+                              restricciones_usuario=restricciones_usuario)
     ]
     
     for i in range(num_hijos):

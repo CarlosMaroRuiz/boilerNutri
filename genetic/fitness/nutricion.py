@@ -7,6 +7,23 @@ los requerimientos nutricionales de referencia.
 
 from conocimiento.requerimientos import REQUERIMIENTOS_NUTRICIONALES
 
+def obtener_etapa(edad_dias):
+    """
+    Determina la etapa de crecimiento según la edad en días
+    
+    Args:
+        edad_dias: Edad del animal en días
+        
+    Returns:
+        Etapa de crecimiento: "iniciacion", "crecimiento", o "finalizacion"
+    """
+    if edad_dias <= 21:
+        return "iniciacion"
+    elif edad_dias <= 35:
+        return "crecimiento"
+    else:
+        return "finalizacion"
+
 def calcular_propiedades_nutricionales(individuo, ingredientes_data):
     """
     Calcula las propiedades nutricionales de una formulación
