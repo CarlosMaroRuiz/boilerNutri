@@ -1,0 +1,14 @@
+# BoilerNutri - Sistema de Optimización de Alimentos para Pollos
+# Dependencias requeridas
+
+# Computación científica y arrays
+numpy>=1.21.0
+
+# Visualización y gráficas
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Opcional: Para mejores gráficas y análisis adicionales
+scipy>=1.7.0
+pandas>=1.3.0
+
