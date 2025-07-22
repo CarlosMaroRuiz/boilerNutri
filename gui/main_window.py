@@ -37,8 +37,10 @@ class BoilerNutriGUI:
             titulo = "boilerNutri - Optimización de Alimentos para Pollos"
         
         self.root.title(titulo)
-        self.root.geometry("1200x800")
-        self.root.minsize(800, 600)
+        self.root.geometry("1400x900")
+        self.root.minsize(1000, 700)
+
+        self.root.state('zoomed')
         
         # Variables del sistema
         self.algoritmo_ejecutando = False
