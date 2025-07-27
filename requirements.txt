@@ -11,6 +11,4 @@ seaborn>=0.11.0
 # Opcional: Para mejores gráficas y análisis adicionales
 scipy>=1.7.0
 pandas>=1.3.0
-
-pip install matplotlib  # Para gráficos
-pip install pillow      
+pillow      

@@ -5,7 +5,7 @@ Contiene información nutricional, precios y limitaciones de uso
 para cada ingrediente disponible en la localidad.
 """
 
-# Base de datos de ingredientes
+
 INGREDIENTES = [
     {
         "id": 1,

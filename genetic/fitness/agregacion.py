@@ -270,7 +270,7 @@ def comparar_individuos(individuo1, individuo2, criterio="fitness"):
         return 0
     
     else:
-        return 0  # Criterio no reconocido
+        return 0  
 
 def generar_ranking_multiobjetivo(poblacion, criterios=None):
     """
