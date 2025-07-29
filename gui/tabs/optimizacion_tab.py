@@ -1,17 +1,15 @@
 """
-Pestaña de optimización con algoritmos genéticos
+Pestaña de optimización con gráfica de evolución de fitness simplificada
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import random
 import time
 
 from config import ALGORITMO_CONFIG
 from ..utils import generar_resultados_simulados
+from utils.fitness_evolution import crear_grafica_fitness, crear_generador_datos
 
 
 class OptimizacionTab:
@@ -21,6 +19,12 @@ class OptimizacionTab:
         self.parent = parent
         self.main_window = main_window
         self.frame = ttk.Frame(parent)
+        
+        # Variables de control
+        self.algoritmo_thread = None
+        self.simulacion_activa = False
+        self.fitness_chart = None
+        self.data_generator = None
         
         self.crear_interfaz()
     
@@ -34,192 +38,308 @@ class OptimizacionTab:
         config_frame = ttk.LabelFrame(main_frame, text="Configuración del Algoritmo Genético", padding=10)
         config_frame.pack(fill=tk.X, pady=5)
         
-        # Parámetros del algoritmo en grid
-        ttk.Label(config_frame, text="Tamaño de Población:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        ttk.Entry(config_frame, textvariable=self.main_window.poblacion_var, width=15).grid(row=0, column=1, padx=10, pady=2)
+        # Parámetros en dos filas
+        # Primera fila
+        fila1 = ttk.Frame(config_frame)
+        fila1.pack(fill=tk.X, pady=2)
         
-        ttk.Label(config_frame, text="Máximo de Generaciones:").grid(row=0, column=2, sticky=tk.W, pady=2)
-        ttk.Entry(config_frame, textvariable=self.main_window.generaciones_var, width=15).grid(row=0, column=3, padx=10, pady=2)
+        ttk.Label(fila1, text="Población:").pack(side=tk.LEFT)
+        ttk.Entry(fila1, textvariable=self.main_window.poblacion_var, width=10).pack(side=tk.LEFT, padx=(5,20))
         
-        # Área de progreso
-        progreso_frame = ttk.LabelFrame(main_frame, text="Progreso de Optimización", padding=10)
-        progreso_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-        
-        # Barra de progreso
-        self.progreso_bar = ttk.Progressbar(progreso_frame, variable=self.main_window.progreso_var, maximum=100)
-        self.progreso_bar.pack(fill=tk.X, pady=5)
-        
-        # Labels de información
-        info_frame = ttk.Frame(progreso_frame)
-        info_frame.pack(fill=tk.X, pady=5)
-        
-        self.generacion_actual_label = ttk.Label(info_frame, text="Generación: 0/0")
-        self.generacion_actual_label.pack(side=tk.LEFT)
-        
-        self.mejor_fitness_label = ttk.Label(info_frame, text="Mejor Fitness: --")
-        self.mejor_fitness_label.pack(side=tk.RIGHT)
-        
-        # Gráfico de evolución
-        self.fig, self.ax = plt.subplots(figsize=(8, 4))
-        self.ax.set_title("Evolución del Fitness")
-        self.ax.set_xlabel("Generación")
-        self.ax.set_ylabel("Fitness")
-        self.ax.grid(True)
-        
-        self.canvas = FigureCanvasTkAgg(self.fig, progreso_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, pady=5)
+        ttk.Label(fila1, text="Generaciones:").pack(side=tk.LEFT)
+        ttk.Entry(fila1, textvariable=self.main_window.generaciones_var, width=10).pack(side=tk.LEFT, padx=(5,20))
         
         # Botones de control
-        botones_frame = ttk.Frame(main_frame)
-        botones_frame.pack(fill=tk.X, pady=10)
+        self.btn_iniciar = ttk.Button(fila1, text="🚀 Iniciar", command=self.iniciar_optimizacion)
+        self.btn_iniciar.pack(side=tk.RIGHT, padx=5)
         
-        self.btn_ejecutar = ttk.Button(botones_frame, text="Ejecutar Optimización", 
-                                      command=self.ejecutar_optimizacion, style='Success.TButton')
-        self.btn_ejecutar.pack(side=tk.LEFT, padx=5)
+        self.btn_detener = ttk.Button(fila1, text="⏹️ Detener", command=self.detener_optimizacion, state=tk.DISABLED)
+        self.btn_detener.pack(side=tk.RIGHT, padx=5)
         
-        self.btn_cancelar = ttk.Button(botones_frame, text="Cancelar", 
-                                      command=self.cancelar_optimizacion, state=tk.DISABLED, style='Danger.TButton')
-        self.btn_cancelar.pack(side=tk.LEFT, padx=5)
-    
-    def ejecutar_optimizacion(self):
-        """Ejecuta la optimización en un hilo separado"""
-        if self.main_window.algoritmo_ejecutando:
-            return
+        # Segunda fila - información
+        fila2 = ttk.Frame(config_frame)
+        fila2.pack(fill=tk.X, pady=(10,2))
         
-        # Validar antes de ejecutar
+        self.info_generacion = ttk.Label(fila2, text="Generación: 0/0")
+        self.info_generacion.pack(side=tk.LEFT)
+        
+        self.info_fitness = ttk.Label(fila2, text="Mejor Fitness: --")
+        self.info_fitness.pack(side=tk.LEFT, padx=(20,0))
+        
+        self.info_tiempo = ttk.Label(fila2, text="Tiempo: 00:00")
+        self.info_tiempo.pack(side=tk.RIGHT)
+        
+        # Barra de progreso
+        self.progreso_bar = ttk.Progressbar(config_frame, variable=self.main_window.progreso_var, maximum=100)
+        self.progreso_bar.pack(fill=tk.X, pady=(10,0))
+        
+        # Frame para la gráfica de fitness
+        grafica_frame = ttk.LabelFrame(main_frame, text="Evolución del Fitness", padding=5)
+        grafica_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        # Crear gráfica de fitness
         try:
-            self.main_window.tab_parametros.validar_parametros()
+            self.fitness_chart = crear_grafica_fitness(grafica_frame, max_puntos=100)
+            self.grafica_disponible = True
+            print("✅ Gráfica de fitness creada exitosamente")
         except Exception as e:
-            messagebox.showerror("Error", f"No se puede ejecutar la optimización:\n{e}")
+            print(f"❌ Error creando gráfica: {e}")
+            error_label = ttk.Label(grafica_frame, text="⚠️ Gráfica no disponible\nVerifique que matplotlib esté instalado")
+            error_label.pack(expand=True)
+            self.grafica_disponible = False
+        
+        # Botones de la gráfica
+        botones_frame = ttk.Frame(grafica_frame)
+        botones_frame.pack(fill=tk.X, pady=5)
+        
+        self.btn_exportar = ttk.Button(botones_frame, text="💾 Exportar Gráfica", command=self.exportar_grafica)
+        self.btn_exportar.pack(side=tk.LEFT, padx=5)
+        
+        self.btn_limpiar = ttk.Button(botones_frame, text="🧹 Limpiar", command=self.limpiar_grafica)
+        self.btn_limpiar.pack(side=tk.LEFT, padx=5)
+        
+        self.btn_metricas = ttk.Button(botones_frame, text="📊 Métricas", command=self.mostrar_metricas)
+        self.btn_metricas.pack(side=tk.LEFT, padx=5)
+        
+        # Deshabilitar botones si no hay gráfica
+        if not self.grafica_disponible:
+            self.btn_exportar.config(state=tk.DISABLED)
+            self.btn_limpiar.config(state=tk.DISABLED)
+            self.btn_metricas.config(state=tk.DISABLED)
+    
+    def iniciar_optimizacion(self):
+        """Inicia el proceso de optimización"""
+        # Validar configuración
+        if not self._validar_parametros():
             return
         
         # Preparar interfaz
-        self.main_window.algoritmo_ejecutando = True
-        self.btn_ejecutar.config(state=tk.DISABLED)
-        self.btn_cancelar.config(state=tk.NORMAL)
-        self.main_window.progreso_var.set(0)
-        self.main_window.fitness_history.clear()
-        self.main_window.generacion_history.clear()
+        self.simulacion_activa = True
+        self.btn_iniciar.config(state=tk.DISABLED)
+        self.btn_detener.config(state=tk.NORMAL)
         
-        # Ejecutar en hilo separado
-        thread = threading.Thread(target=self._ejecutar_algoritmo_thread)
-        thread.daemon = True
-        thread.start()
+        # Limpiar gráfica anterior
+        if self.grafica_disponible and self.fitness_chart:
+            self.fitness_chart.limpiar()
         
-        # Iniciar monitoreo de progreso
-        self.main_window.root.after(100, self.actualizar_progreso)
+        # Crear generador de datos
+        self.data_generator = crear_generador_datos(fitness_inicial=0.2, fitness_objetivo=0.95)
+        
+        # Inicializar tiempo
+        self.tiempo_inicio = time.time()
+        
+        # Ejecutar optimización en thread separado
+        self.algoritmo_thread = threading.Thread(target=self._ejecutar_optimizacion, daemon=True)
+        self.algoritmo_thread.start()
+        
+        self.main_window.status_bar.config(text="🔄 Optimización en progreso...")
+        print("🚀 Optimización iniciada")
     
-    def _ejecutar_algoritmo_thread(self):
-        """Ejecuta el algoritmo en un hilo separado"""
+    def detener_optimizacion(self):
+        """Detiene la optimización"""
+        self.simulacion_activa = False
+        self.btn_iniciar.config(state=tk.NORMAL)
+        self.btn_detener.config(state=tk.DISABLED)
+        
+        self.main_window.status_bar.config(text="⏹️ Optimización detenida")
+        messagebox.showinfo("Detenido", "Optimización detenida por el usuario")
+    
+    def _validar_parametros(self):
+        """Valida que los parámetros estén correctos"""
+        if not self.main_window.raza_var.get():
+            messagebox.showerror("Error", "Seleccione una raza de pollos")
+            return False
+        
+        if self.main_window.peso_actual_var.get() >= self.main_window.peso_objetivo_var.get():
+            messagebox.showerror("Error", "El peso objetivo debe ser mayor al peso actual")
+            return False
+        
+        poblacion = self.main_window.poblacion_var.get()
+        generaciones = self.main_window.generaciones_var.get()
+        
+        if poblacion < 10 or poblacion > 1000:
+            messagebox.showerror("Error", "La población debe estar entre 10 y 1000")
+            return False
+        
+        if generaciones < 5 or generaciones > 500:
+            messagebox.showerror("Error", "Las generaciones deben estar entre 5 y 500")
+            return False
+        
+        return True
+    
+    def _ejecutar_optimizacion(self):
+        """Ejecuta la simulación del algoritmo genético"""
+        tamano_poblacion = self.main_window.poblacion_var.get()
+        max_generaciones = self.main_window.generaciones_var.get()
+        
         try:
-            # Preparar configuración
-            from ..utils import preparar_configuracion_algoritmo
-            config = preparar_configuracion_algoritmo(self.main_window)
+            print(f"🧬 Ejecutando {max_generaciones} generaciones con población de {tamano_poblacion}")
             
-            # Simulación temporal para testing
-            mejor_fitness_actual = float('inf')
-            
-            for i in range(1, config['num_generaciones'] + 1):
-                if not self.main_window.algoritmo_ejecutando:
+            for generacion in range(max_generaciones):
+                if not self.simulacion_activa:
+                    print("⏹️ Optimización detenida por usuario")
                     break
                 
-                # Simular mejora progresiva del fitness
-                fitness_simulado = 100.0 * (1.0 - i / config['num_generaciones']) + random.random() * 10
-                if fitness_simulado < mejor_fitness_actual:
-                    mejor_fitness_actual = fitness_simulado
+                # Generar datos de la generación
+                mejor, promedio, peor = self.data_generator.generar_poblacion(tamano_poblacion, max_generaciones)
                 
-                self.main_window.progreso_queue.put(('progreso', {
-                    'generacion': i,
-                    'mejor_fitness': mejor_fitness_actual,
-                    'poblacion': []
-                }))
+                # Actualizar gráfica si está disponible
+                if self.grafica_disponible and self.fitness_chart:
+                    self.fitness_chart.agregar_punto(generacion, mejor, promedio, peor)
                 
-                time.sleep(0.05)
+                # Actualizar interfaz en el hilo principal
+                self.main_window.root.after(0, self._actualizar_interfaz, 
+                                          generacion, max_generaciones, mejor, promedio, peor)
+                
+                # Pausa para simular procesamiento
+                time.sleep(0.05)  # 50ms por generación
             
-            # Generar resultados simulados
-            resultados_simulados = generar_resultados_simulados(config)
-            self.main_window.progreso_queue.put(('resultado', resultados_simulados))
+            # Completar optimización si no fue detenida
+            if self.simulacion_activa:
+                self.main_window.root.after(0, self._completar_optimizacion)
+                
+        except Exception as e:
+            print(f"❌ Error en optimización: {e}")
+            self.main_window.root.after(0, lambda: messagebox.showerror("Error", f"Error en optimización: {e}"))
+    
+    def _actualizar_interfaz(self, generacion, max_generaciones, mejor, promedio, peor):
+        """Actualiza la interfaz con datos de la generación actual"""
+        try:
+            # Progreso
+            progreso = (generacion + 1) / max_generaciones * 100
+            self.main_window.progreso_var.set(progreso)
+            
+            # Información de generación
+            self.info_generacion.config(text=f"Generación: {generacion + 1}/{max_generaciones}")
+            self.info_fitness.config(text=f"Mejor Fitness: {mejor:.4f}")
+            
+            # Tiempo transcurrido
+            tiempo_transcurrido = time.time() - self.tiempo_inicio
+            minutos = int(tiempo_transcurrido // 60)
+            segundos = int(tiempo_transcurrido % 60)
+            self.info_tiempo.config(text=f"Tiempo: {minutos:02d}:{segundos:02d}")
             
         except Exception as e:
-            self.main_window.progreso_queue.put(('error', str(e)))
+            print(f"Error actualizando interfaz: {e}")
     
-    def actualizar_progreso(self):
-        """Actualiza la interfaz con el progreso del algoritmo"""
-        import queue
+    def _completar_optimizacion(self):
+        """Completa el proceso de optimización"""
+        self.simulacion_activa = False
+        self.btn_iniciar.config(state=tk.NORMAL)
+        self.btn_detener.config(state=tk.DISABLED)
         
-        try:
-            while True:
-                tipo, datos = self.main_window.progreso_queue.get_nowait()
-                
-                if tipo == 'progreso':
-                    # Actualizar labels
-                    gen = datos['generacion']
-                    max_gen = self.main_window.generaciones_var.get()
-                    progreso = (gen / max_gen) * 100
-                    
-                    self.main_window.progreso_var.set(progreso)
-                    self.generacion_actual_label.config(text=f"Generación: {gen}/{max_gen}")
-                    self.mejor_fitness_label.config(text=f"Mejor Fitness: {datos['mejor_fitness']:.4f}")
-                    
-                    # Actualizar gráfico
-                    self.main_window.fitness_history.append(datos['mejor_fitness'])
-                    self.main_window.generacion_history.append(gen)
-                    
-                    self.ax.clear()
-                    self.ax.plot(self.main_window.generacion_history, self.main_window.fitness_history, 'b-')
-                    self.ax.set_title("Evolución del Fitness")
-                    self.ax.set_xlabel("Generación")
-                    self.ax.set_ylabel("Fitness")
-                    self.ax.grid(True)
-                    self.canvas.draw()
-                    
-                elif tipo == 'resultado':
-                    self.main_window.tab_resultados.mostrar_resultados(datos)
-                    self.finalizar_optimizacion()
-                    return
-                    
-                elif tipo == 'error':
-                    messagebox.showerror("Error", f"Error durante la optimización:\n{datos}")
-                    self.finalizar_optimizacion()
-                    return
-                    
-        except queue.Empty:
-            pass
+        # Generar resultados simulados
+        config = self._preparar_configuracion()
+        self.main_window.resultados = generar_resultados_simulados(config)
         
-        # Continuar monitoreando si el algoritmo sigue ejecutándose
-        if self.main_window.algoritmo_ejecutando:
-            self.main_window.root.after(100, self.actualizar_progreso)
+        # Mostrar resultados
+        self.main_window.tab_resultados.mostrar_resultados(self.main_window.resultados)
+        self.main_window.notebook.select(3)  # Cambiar a pestaña de resultados
+        
+        # Mostrar métricas finales
+        if self.grafica_disponible and self.fitness_chart:
+            metricas = self.fitness_chart.obtener_metricas()
+            if metricas:
+                mensaje = (f"✅ Optimización completada\n\n"
+                          f"📊 Resultados:\n"
+                          f"• Generaciones: {metricas['total_generaciones']}\n"
+                          f"• Mejor Fitness: {metricas['mejor_fitness_actual']:.4f}\n"
+                          f"• Mejora Total: {metricas['mejora_total']:.4f}\n"
+                          f"• Estado: {metricas['tendencia']}")
+                messagebox.showinfo("Optimización Completada", mensaje)
+        else:
+            messagebox.showinfo("Optimización Completada", "✅ Optimización completada exitosamente")
+        
+        self.main_window.status_bar.config(text="✅ Optimización completada")
+        print("✅ Optimización completada exitosamente")
     
-    def finalizar_optimizacion(self):
-        """Finaliza la optimización y restaura la interfaz"""
-        self.main_window.algoritmo_ejecutando = False
-        self.btn_ejecutar.config(state=tk.NORMAL)
-        self.btn_cancelar.config(state=tk.DISABLED)
-        self.main_window.progreso_var.set(100)
-        self.main_window.status_bar.config(text="Optimización completada")
+    def _preparar_configuracion(self):
+        """Prepara configuración para generar resultados"""
+        from ..utils import preparar_configuracion_algoritmo
+        return preparar_configuracion_algoritmo(self.main_window)
     
-    def cancelar_optimizacion(self):
-        """Cancela la optimización en curso"""
-        if self.main_window.algoritmo_ejecutando:
-            respuesta = messagebox.askyesno("Cancelar Optimización", 
-                                          "¿Está seguro de que desea cancelar la optimización en curso?\n"
-                                          "Se perderá el progreso actual.")
-            if respuesta:
-                self.main_window.algoritmo_ejecutando = False
-                self.finalizar_optimizacion()
-                self.main_window.status_bar.config(text="Optimización cancelada por el usuario")
-                messagebox.showinfo("Cancelado", "Optimización cancelada exitosamente")
+    def exportar_grafica(self):
+        """Exporta la gráfica a un archivo"""
+        if not self.grafica_disponible or not self.fitness_chart:
+            messagebox.showwarning("Advertencia", "Gráfica no disponible")
+            return
+        
+        from tkinter import filedialog
+        
+        archivo = filedialog.asksaveasfilename(
+            title="Exportar Gráfica de Evolución",
+            defaultextension=".png",
+            filetypes=[
+                ("PNG files", "*.png"),
+                ("PDF files", "*.pdf"),
+                ("SVG files", "*.svg")
+            ]
+        )
+        
+        if archivo:
+            if self.fitness_chart.exportar_grafica(archivo):
+                messagebox.showinfo("Éxito", f"Gráfica exportada exitosamente a:\n{archivo}")
+            else:
+                messagebox.showerror("Error", "No se pudo exportar la gráfica")
+    
+    def limpiar_grafica(self):
+        """Limpia la gráfica de evolución"""
+        if self.grafica_disponible and self.fitness_chart:
+            self.fitness_chart.limpiar()
+            print("🧹 Gráfica limpiada")
+        
+        # Resetear información
+        self.info_generacion.config(text="Generación: 0/0")
+        self.info_fitness.config(text="Mejor Fitness: --")
+        self.info_tiempo.config(text="Tiempo: 00:00")
+        self.main_window.progreso_var.set(0)
+    
+    def mostrar_metricas(self):
+        """Muestra las métricas actuales de la optimización"""
+        if not self.grafica_disponible or not self.fitness_chart:
+            messagebox.showwarning("Advertencia", "Gráfica no disponible")
+            return
+        
+        metricas = self.fitness_chart.obtener_metricas()
+        
+        if not metricas:
+            messagebox.showinfo("Métricas", "No hay datos disponibles\nEjecute una optimización primero")
+            return
+        
+        # Crear ventana de métricas
+        ventana = tk.Toplevel(self.main_window.root)
+        ventana.title("Métricas de Evolución")
+        ventana.geometry("400x300")
+        ventana.resizable(False, False)
+        
+        # Contenido
+        frame = ttk.Frame(ventana, padding=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(frame, text="📊 Métricas de Evolución", font=('Arial', 14, 'bold')).pack(pady=(0,20))
+        
+        info_text = f"""
+        Generaciones Ejecutadas: {metricas.get('total_generaciones', 0)}
+        
+        Fitness Inicial: {metricas.get('mejor_fitness_inicial', 0):.4f}
+        Fitness Actual: {metricas.get('mejor_fitness_actual', 0):.4f}
+        Mejora Total: {metricas.get('mejora_total', 0):.4f}
+        
+        Promedio Actual: {metricas.get('promedio_actual', 0):.4f}
+        Tendencia: {metricas.get('tendencia', 'N/A').title()}
+        """
+        
+        ttk.Label(frame, text=info_text, justify=tk.LEFT, font=('Courier', 10)).pack(pady=10)
+        
+        ttk.Button(frame, text="Cerrar", command=ventana.destroy).pack(pady=20)
     
     def limpiar(self):
-        """Limpia el gráfico y resetea el estado"""
-        self.main_window.fitness_history.clear()
-        self.main_window.generacion_history.clear()
-        self.ax.clear()
-        self.ax.set_title("Evolución del Fitness")
-        self.ax.set_xlabel("Generación")
-        self.ax.set_ylabel("Fitness")
-        self.ax.grid(True)
-        self.canvas.draw()
-        self.main_window.progreso_var.set(0)
-        self.generacion_actual_label.config(text="Generación: 0/0")
-        self.mejor_fitness_label.config(text="Mejor Fitness: --")
+        """Limpia toda la pestaña (llamado desde ventana principal)"""
+        if self.simulacion_activa:
+            self.detener_optimizacion()
+        
+        self.limpiar_grafica()
+        self.main_window.resultados = None
+        
+        if self.data_generator:
+            self.data_generator.reset()
