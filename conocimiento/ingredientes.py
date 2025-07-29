@@ -1,9 +1,4 @@
-"""
-Base de datos de ingredientes disponibles para formulaciones de alimentos.
 
-Contiene información nutricional, precios y limitaciones de uso
-para cada ingrediente disponible en la localidad.
-"""
 
 
 INGREDIENTES = [
@@ -21,7 +16,7 @@ INGREDIENTES = [
         },
         "precios": {
             "veterinaria_buenavista": 7.3,     # $7.3 por kg
-            "veterinaria_don_paco": 7.1,       # $7.1 por kg
+            "veterinaria_don_paco": 7.4,       # $7.1 por kg
             "veterinaria_don_edilberto": 7.2   # $7.2 por kg
         },
         "limitaciones": {

@@ -1,15 +1,5 @@
-"""
-Implementación principal del algoritmo genético.
-
-Coordina el proceso evolutivo con estrategia adaptativa por fases:
-- Fase inicial: Exploración amplia
-- Fase intermedia: Transición gradual
-- Fase final: Explotación y refinamiento
-"""
-
 import time
 import random
-import copy
 from genetic.inicializacion import crear_poblacion_inicial, generar_estadisticas_poblacion
 from genetic.seleccion import seleccionar_padre, seleccion_elitista, calcular_metricas_seleccion
 from genetic.cruza import seleccionar_operador_cruza, validar_hijo, reparar_hijo

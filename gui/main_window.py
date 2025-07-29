@@ -4,14 +4,13 @@ Ventana principal de la aplicación boilerNutri
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import threading
+
 import queue
 from datetime import datetime
 
 # Importaciones del sistema boilerNutri
 from config import SISTEMA_INFO, ALGORITMO_CONFIG
-from conocimiento import INGREDIENTES, REQUERIMIENTOS_NUTRICIONALES, RAZAS_POLLOS
-from utils import validar_parametros_produccion
+
 
 # Importaciones de la GUI
 from .tabs import (

@@ -1,10 +1,3 @@
-"""
-Función de fitness agregada que integra todos los objetivos.
-
-Combina múltiples objetivos mediante agregación ponderada
-para generar un valor único de aptitud.
-"""
-
 from genetic.fitness.nutricion import calcular_discrepancia_nutricional
 from genetic.fitness.costo import calcular_costo_total
 from genetic.fitness.eficiencia import estimar_eficiencia_alimenticia
@@ -375,36 +368,3 @@ def detectar_convergencia(historico_fitness, ventana=25, tolerancia=5e-5):
     
     return mejora < tolerancia and varianza < tolerancia * 10
 
-def diagnosticar_fitness(individuo, config_evaluacion, ingredientes_data):
-    """
-    NUEVA FUNCIÓN: Diagnostica los componentes del fitness para debugging
-    
-    Args:
-        individuo: Objeto individuo con porcentajes
-        config_evaluacion: Diccionario con configuración de evaluación
-        ingredientes_data: Lista de datos de ingredientes
-        
-    Returns:
-        Diccionario con diagnóstico detallado
-    """
-    from conocimiento.requerimientos import obtener_etapa
-    
-    edad_dias = config_evaluacion.get("edad_dias", 35)
-    etapa = obtener_etapa(edad_dias)
-    
-    # Calcular componentes individuales
-    discrepancia = calcular_discrepancia_nutricional(individuo, etapa, ingredientes_data)
-    costo = calcular_costo_total(individuo, ingredientes_data)
-    
-    print(f"\n🔍 DIAGNÓSTICO DE FITNESS:")
-    print(f"Edad: {edad_dias} días → Etapa: {etapa}")
-    print(f"Discrepancia nutricional: {discrepancia:.4f}")
-    print(f"Costo total: ${costo:.2f}/kg")
-    print(f"Fitness total: {individuo.fitness:.4f}")
-    
-    return {
-        "etapa": etapa,
-        "discrepancia": discrepancia,
-        "costo": costo,
-        "fitness": individuo.fitness
-    }

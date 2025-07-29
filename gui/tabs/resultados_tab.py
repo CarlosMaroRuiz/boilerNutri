@@ -10,7 +10,7 @@ import numpy as np
 import random
 
 from conocimiento import INGREDIENTES
-from ..widgets import TablaFormulacion
+from ..widgets.formulation_table import TablaFormulacion
 
 
 class ResultadosTab:
