@@ -7,7 +7,7 @@ iniciación, crecimiento y finalización.
 
 # Requerimientos nutricionales por etapa (CORREGIDOS)
 REQUERIMIENTOS_NUTRICIONALES = {
-    "iniciacion": {  # 1-21 días (CORREGIDO: era 1-10)
+    "iniciacion": {  # 1-21 días 
         "proteina": 0.22,       # 22% de proteína
         "energia": 3000,        # 3000 kcal/kg
         "lisina": 0.0130,       # 1.30% de lisina
@@ -16,7 +16,7 @@ REQUERIMIENTOS_NUTRICIONALES = {
         "fosforo": 0.0050,      # 0.50% de fósforo disponible
         "fibra": 0.04           # Máximo 4% de fibra
     },
-    "crecimiento": { # 22-35 días (CORREGIDO: era 11-24)
+    "crecimiento": { # 22-35 días 
         "proteina": 0.21,       # 21% de proteína
         "energia": 3050,        # 3050 kcal/kg
         "lisina": 0.0120,       # 1.20% de lisina
@@ -25,7 +25,7 @@ REQUERIMIENTOS_NUTRICIONALES = {
         "fosforo": 0.0045,      # 0.45% de fósforo disponible
         "fibra": 0.04           # Máximo 4% de fibra
     },
-    "finalizacion": { # 36-42 días (CORREGIDO: era 25-42)
+    "finalizacion": { # 36-42 días 
         "proteina": 0.19,       # 19% de proteína
         "energia": 3100,        # 3100 kcal/kg
         "lisina": 0.0105,       # 1.05% de lisina

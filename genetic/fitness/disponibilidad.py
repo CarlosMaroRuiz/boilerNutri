@@ -1,12 +1,3 @@
-"""
-Función objetivo: Disponibilidad local.
-
-Evalúa qué tan fácil es obtener los ingredientes
-de la formulación en proveedores locales.
-"""
-
-from conocimiento.proveedores import obtener_proveedor
-
 def calcular_disponibilidad_local(individuo, ingredientes_data):
     """
     Calcula un factor que representa la dificultad de obtener
@@ -190,34 +181,6 @@ def evaluar_riesgo_suministro(individuo, ingredientes_data):
     
     return riesgos
 
-def calcular_factor_estacionalidad(individiente_data, mes_actual=None):
-    """
-    Calcula un factor de ajuste por estacionalidad (futuro)
-    
-    Args:
-        ingrediente_data: Datos del ingrediente
-        mes_actual: Mes actual (1-12), opcional
-        
-    Returns:
-        Factor de ajuste por estacionalidad
-    """
-    # Placeholder para funcionalidad futura
-    # Podría incluir variaciones estacionales de disponibilidad
-    # Por ejemplo: maíz más disponible en época de cosecha
-    
-    factores_estacionales = {
-        "Maíz": {1: 1.0, 2: 1.0, 3: 1.1, 4: 1.1, 5: 1.2, 6: 1.2,
-                7: 0.9, 8: 0.8, 9: 0.8, 10: 0.9, 11: 1.0, 12: 1.0},
-        "Sorgo": {1: 1.0, 2: 1.0, 3: 1.1, 4: 1.1, 5: 1.2, 6: 1.2,
-                 7: 0.9, 8: 0.8, 9: 0.8, 10: 0.9, 11: 1.0, 12: 1.0}
-    }
-    
-    if mes_actual and "nombre" in ingrediente_data:
-        nombre = ingrediente_data["nombre"]
-        if nombre in factores_estacionales:
-            return factores_estacionales[nombre].get(mes_actual, 1.0)
-    
-    return 1.0  # Sin ajuste por defecto
 
 def generar_recomendaciones_suministro(individuo, ingredientes_data):
     """

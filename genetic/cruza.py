@@ -1,10 +1,3 @@
-"""
-Operadores de cruza para el algoritmo genético.
-
-Implementa diferentes métodos de cruza adaptados
-a la representación de porcentajes de ingredientes.
-"""
-
 import random
 import numpy as np
 from genetic.individuo import Individuo

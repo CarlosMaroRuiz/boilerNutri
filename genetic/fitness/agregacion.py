@@ -7,24 +7,7 @@ from genetic.fitness.restricciones import verificar_restricciones
 from conocimiento.requerimientos import obtener_etapa
 
 def calcular_fitness(individuo, config_evaluacion, ingredientes_data, restricciones_usuario=None):
-    """
-    Calcula el fitness global para un individuo.
-    
-    Esta función debe ser MINIMIZADA porque:
-    - Integra múltiples objetivos que deben ser minimizados
-    - Un valor bajo indica mejor calidad global de la solución
-    - Facilita la comparación directa entre diferentes formulaciones
-    
-    Args:
-        individuo: Objeto individuo con porcentajes
-        config_evaluacion: Diccionario con configuración de evaluación
-        ingredientes_data: Lista de datos de ingredientes
-        restricciones_usuario: Objeto con restricciones del usuario (opcional)
-        
-    Returns:
-        Valor de fitness global (menor es mejor)
-    """
-    # Extraer parámetros de configuración
+  
     raza = config_evaluacion.get("raza", "Ross")
     edad_dias = config_evaluacion.get("edad_dias", 35)
     peso_actual = config_evaluacion.get("peso_actual", 1.5)
@@ -34,7 +17,7 @@ def calcular_fitness(individuo, config_evaluacion, ingredientes_data, restriccio
     # Determinar etapa según edad
     etapa = obtener_etapa(edad_dias)
     
-    # Calcular cada componente del fitness
+    
     componentes = {}
     
     # 1. Discrepancia nutricional (PRIORIDAD ALTA)
@@ -67,7 +50,6 @@ def calcular_fitness(individuo, config_evaluacion, ingredientes_data, restriccio
         individuo, ingredientes_data, restricciones_usuario
     )
     
-    # Normalizar componentes (MEJORADO)
     componentes_normalizados = normalizar_objetivos_mejorado(componentes)
     
     # Aplicar ponderaciones
@@ -77,6 +59,71 @@ def calcular_fitness(individuo, config_evaluacion, ingredientes_data, restriccio
     individuo.fitness = fitness
     
     return fitness
+
+def calcular_fitness_adaptativo(individuo, config_evaluacion, ingredientes_data, 
+                               restricciones_usuario=None, fase="inicial", generacion=0):
+    """
+    Calcula el fitness con pesos adaptativos según la fase del algoritmo.
+    
+    Args:
+        individuo: Objeto individuo con porcentajes
+        config_evaluacion: Diccionario con configuración de evaluación
+        ingredientes_data: Lista de datos de ingredientes
+        restricciones_usuario: Objeto con restricciones del usuario (opcional)
+        fase: Fase actual del algoritmo ("inicial", "intermedia", "final")
+        generacion: Número de generación actual
+        
+    Returns:
+        Valor de fitness global adaptativo (menor es mejor)
+    """
+    # Obtener pesos adaptativos según la fase
+    pesos_adaptativos = obtener_pesos_por_fase(fase, generacion)
+    
+    # Actualizar configuración con pesos adaptativos
+    config_adaptativa = config_evaluacion.copy()
+    config_adaptativa["pesos"] = pesos_adaptativos
+    
+    # Calcular fitness con pesos adaptativos
+    return calcular_fitness(individuo, config_adaptativa, ingredientes_data, restricciones_usuario)
+
+def obtener_pesos_por_fase(fase, generacion=0):
+    """
+    Obtiene pesos adaptativos según la fase del algoritmo.
+    
+    Args:
+        fase: Fase actual ("inicial", "intermedia", "final")
+        generacion: Número de generación actual
+        
+    Returns:
+        Diccionario con pesos adaptativos
+    """
+    if fase == "inicial":
+       
+        return {
+            "discrepancia_nutricional": 0.45,  
+            "costo": 0.20,                     
+            "eficiencia": 0.15,
+            "disponibilidad": 0.10,
+            "tiempo": 0.10
+        }
+    elif fase == "intermedia":
+        # Fase intermedia: Balance equilibrado
+        return {
+            "discrepancia_nutricional": 0.35,
+            "costo": 0.30,                     # Incrementar importancia del costo
+            "eficiencia": 0.15,
+            "disponibilidad": 0.10,
+            "tiempo": 0.10
+        }
+    else:  # fase == "final"
+        # Fase final: Optimización fina, priorizar costo y eficiencia
+        return {
+            "discrepancia_nutricional": 0.30,
+            "costo": 0.35,                     # Mayor prioridad al costo
+            "eficiencia": 0.20,                # Mayor prioridad a eficiencia
+            "disponibilidad": 0.10,
+            "tiempo": 0.05                     # Menor prioridad al tiempo
+        }
 
 def normalizar_objetivos_mejorado(componentes):
     """
@@ -109,237 +156,62 @@ def normalizar_objetivos_mejorado(componentes):
 
 def calcular_fitness_ponderado(componentes_normalizados, pesos_personalizados=None):
     """
-    Calcula el fitness aplicando ponderaciones MEJORADAS a los objetivos
+    Calcula el fitness aplicando ponderaciones
     
     Args:
-        componentes_normalizados: Diccionario con componentes normalizados
-        pesos_personalizados: Diccionario con pesos personalizados (opcional)
+        componentes_normalizados: Componentes ya normalizados
+        pesos_personalizados: Pesos específicos (opcional)
         
     Returns:
         Valor de fitness ponderado
     """
-    # Pesos por defecto REBALANCEADOS (nutrición prioritaria)
+    # Pesos por defecto
     pesos_default = {
-        "discrepancia_nutricional": 0.50,  # ERA 0.35 → AUMENTADO: Nutrición es crítica
-        "costo": 0.25,                     # ERA 0.30 → REDUCIDO: Menos peso al costo
-        "eficiencia": 0.15,                # MANTENER: Eficiencia importante
-        "disponibilidad": 0.05,            # ERA 0.10 → REDUCIDO: Menos crítico
-        "tiempo": 0.05,                    # ERA 0.10 → REDUCIDO: Menos crítico
-        "restricciones": 2.0               # ERA 1.0 → AUMENTADO: Penalizar más violaciones
+        "discrepancia_nutricional": 0.35,
+        "costo": 0.30,
+        "eficiencia": 0.15,
+        "disponibilidad": 0.10,
+        "tiempo": 0.10
     }
     
     # Usar pesos personalizados si se proporcionan
-    if pesos_personalizados:
-        pesos = {**pesos_default, **pesos_personalizados}
-    else:
-        pesos = pesos_default
+    pesos = pesos_personalizados if pesos_personalizados else pesos_default
     
-    # Calcular fitness ponderado
     fitness = 0
     
-    # Objetivos principales (se suman ponderadamente)
-    objetivos_principales = ["discrepancia_nutricional", "costo", "eficiencia", 
-                           "disponibilidad", "tiempo"]
-    
-    for objetivo in objetivos_principales:
-        if objetivo in componentes_normalizados:
-            valor_normalizado = componentes_normalizados[objetivo]
-            peso = pesos.get(objetivo, 0)
-            
-            # APLICAR PENALIZACIÓN CUADRÁTICA PARA DISCREPANCIA NUTRICIONAL
-            if objetivo == "discrepancia_nutricional" and valor_normalizado > 0.3:
-                # Penalización extra para discrepancias altas
-                valor_normalizado = valor_normalizado * (1 + valor_normalizado)
-            
-            fitness += peso * valor_normalizado
-    
-    # Restricciones (se multiplican por factor alto)
-    if "restricciones" in componentes_normalizados:
-        peso_restricciones = pesos.get("restricciones", 2.0)
-        fitness += peso_restricciones * componentes_normalizados["restricciones"]
+    # Sumar componentes ponderados
+    for componente, valor in componentes_normalizados.items():
+        if componente == "restricciones":
+            # Las restricciones se suman directamente como penalización
+            fitness += valor
+        else:
+            # Los demás objetivos se ponderan
+            peso = pesos.get(componente, 0)
+            fitness += peso * valor
     
     return fitness
 
-def calcular_fitness_adaptativo(individuo, config_evaluacion, ingredientes_data, 
-                               fase_algoritmo="inicial", restricciones_usuario=None):
-    """
-    Calcula fitness con pesos adaptativos MEJORADOS según la fase del algoritmo
-    
-    Args:
-        individuo: Objeto individuo con porcentajes
-        config_evaluacion: Diccionario con configuración de evaluación
-        ingredientes_data: Lista de datos de ingredientes
-        fase_algoritmo: Fase actual ("inicial", "intermedia", "final")
-        restricciones_usuario: Objeto con restricciones del usuario (opcional)
-        
-    Returns:
-        Valor de fitness adaptativo
-    """
-    # Pesos MEJORADOS según la fase del algoritmo (nutrición siempre prioritaria)
-    pesos_por_fase = {
-        "inicial": {
-            "discrepancia_nutricional": 0.55,  # ERA 0.40 → MÁS PESO a nutrición
-            "costo": 0.20,                     # ERA 0.25 → MENOS peso al costo
-            "eficiencia": 0.15,
-            "disponibilidad": 0.05,
-            "tiempo": 0.05
-        },
-        "intermedia": {
-            "discrepancia_nutricional": 0.50,  # MANTENER alta prioridad nutricional
-            "costo": 0.25,                     # ERA 0.30 → Aumenta pero controlado
-            "eficiencia": 0.15,
-            "disponibilidad": 0.05,
-            "tiempo": 0.05
-        },
-        "final": {
-            "discrepancia_nutricional": 0.45,  # ERA 0.30 → MANTENER prioritario
-            "costo": 0.30,                     # ERA 0.35 → Costo importante pero no dominante
-            "eficiencia": 0.20,                # Aumentar peso en eficiencia
-            "disponibilidad": 0.03,
-            "tiempo": 0.02
-        }
-    }
-    
-    pesos = pesos_por_fase.get(fase_algoritmo, pesos_por_fase["inicial"])
-    config_evaluacion["pesos"] = pesos
-    
-    return calcular_fitness(individuo, config_evaluacion, ingredientes_data, restricciones_usuario)
-
 def evaluar_poblacion(poblacion, config_evaluacion, ingredientes_data, 
-                     fase_algoritmo="inicial", restricciones_usuario=None):
+                     restricciones_usuario=None, fase="inicial", generacion=0):
     """
-    Evalúa toda una población calculando el fitness de cada individuo
+    Evalúa toda una población de individuos
     
     Args:
         poblacion: Lista de individuos
-        config_evaluacion: Diccionario con configuración de evaluación
-        ingredientes_data: Lista de datos de ingredientes
-        fase_algoritmo: Fase actual del algoritmo
-        restricciones_usuario: Objeto con restricciones del usuario (opcional)
-        
-    Returns:
-        Lista de individuos evaluados
+        config_evaluacion: Configuración de evaluación
+        ingredientes_data: Datos de ingredientes
+        restricciones_usuario: Restricciones del usuario (opcional)
+        fase: Fase actual del algoritmo
+        generacion: Generación actual
     """
     for individuo in poblacion:
-        calcular_fitness_adaptativo(individuo, config_evaluacion, ingredientes_data, 
-                                   fase_algoritmo, restricciones_usuario)
+        calcular_fitness_adaptativo(
+            individuo, config_evaluacion, ingredientes_data, 
+            restricciones_usuario, fase, generacion
+        )
     
-    return poblacion
-
-def comparar_individuos(individuo1, individuo2, criterio="fitness"):
-    """
-    Compara dos individuos según diferentes criterios
-    
-    Args:
-        individuo1: Primer individuo
-        individuo2: Segundo individuo
-        criterio: Criterio de comparación ("fitness", "costo", "nutricion", etc.)
-        
-    Returns:
-        -1 si individuo1 es mejor, 1 si individuo2 es mejor, 0 si son iguales
-    """
-    if criterio == "fitness":
-        if individuo1.fitness < individuo2.fitness:
-            return -1
-        elif individuo1.fitness > individuo2.fitness:
-            return 1
-        else:
-            return 0
-    
-    elif criterio == "costo":
-        if individuo1.costo_total < individuo2.costo_total:
-            return -1
-        elif individuo1.costo_total > individuo2.costo_total:
-            return 1
-        else:
-            return 0
-    
-    elif criterio == "tiempo":
-        if hasattr(individuo1, 'dias_peso_objetivo') and hasattr(individuo2, 'dias_peso_objetivo'):
-            if individuo1.dias_peso_objetivo < individuo2.dias_peso_objetivo:
-                return -1
-            elif individuo1.dias_peso_objetivo > individuo2.dias_peso_objetivo:
-                return 1
-        return 0
-    
-    else:
-        return 0  
-
-def generar_ranking_multiobjetivo(poblacion, criterios=None):
-    """
-    Genera un ranking considerando múltiples objetivos
-    
-    Args:
-        poblacion: Lista de individuos
-        criterios: Lista de criterios a considerar
-        
-    Returns:
-        Lista ordenada de individuos con rankings
-    """
-    if criterios is None:
-        criterios = ["fitness", "costo", "tiempo"]
-    
-    ranking = []
-    
-    for individuo in poblacion:
-        scores = {}
-        scores["fitness"] = individuo.fitness
-        scores["costo"] = individuo.costo_total
-        
-        if hasattr(individuo, 'dias_peso_objetivo'):
-            scores["tiempo"] = individuo.dias_peso_objetivo
-        
-        if hasattr(individuo, 'conversion_alimenticia'):
-            scores["eficiencia"] = individuo.conversion_alimenticia
-        
-        ranking.append({
-            "individuo": individuo,
-            "scores": scores
-        })
-    
-    # Ordenar por fitness principal
-    ranking.sort(key=lambda x: x["individuo"].fitness)
-    
-    return ranking
-
-def calcular_metricas_poblacion(poblacion):
-    """
-    Calcula métricas estadísticas de una población
-    
-    Args:
-        poblacion: Lista de individuos
-        
-    Returns:
-        Diccionario con métricas estadísticas
-    """
-    if not poblacion:
-        return {}
-    
-    fitness_values = [ind.fitness for ind in poblacion]
-    costo_values = [ind.costo_total for ind in poblacion if hasattr(ind, 'costo_total')]
-    
-    metricas = {
-        "fitness": {
-            "mejor": min(fitness_values),
-            "peor": max(fitness_values),
-            "promedio": sum(fitness_values) / len(fitness_values),
-            "mediana": sorted(fitness_values)[len(fitness_values) // 2]
-        }
-    }
-    
-    if costo_values:
-        metricas["costo"] = {
-            "mejor": min(costo_values),
-            "peor": max(costo_values),
-            "promedio": sum(costo_values) / len(costo_values)
-        }
-    
-    # Calcular diversidad (desviación estándar del fitness)
-    promedio_fitness = metricas["fitness"]["promedio"]
-    varianza = sum((f - promedio_fitness) ** 2 for f in fitness_values) / len(fitness_values)
-    metricas["diversidad"] = varianza ** 0.5
-    
-    return metricas
+    # Ordenar por fitness (menor es mejor)
+    poblacion.sort(key=lambda ind: ind.fitness)
 
 def detectar_convergencia(historico_fitness, ventana=25, tolerancia=5e-5):
     """
@@ -368,3 +240,40 @@ def detectar_convergencia(historico_fitness, ventana=25, tolerancia=5e-5):
     
     return mejora < tolerancia and varianza < tolerancia * 10
 
+def calcular_metricas_poblacion(poblacion):
+    """
+    Calcula métricas estadísticas de la población
+    
+    Args:
+        poblacion: Lista de individuos evaluados
+        
+    Returns:
+        Diccionario con métricas de la población
+    """
+    if not poblacion:
+        return {}
+    
+    fitness_values = [ind.fitness for ind in poblacion]
+    costo_values = [getattr(ind, 'costo_total', 0) for ind in poblacion]
+    
+    metricas = {
+        "fitness": {
+            "mejor": min(fitness_values),
+            "peor": max(fitness_values),
+            "promedio": sum(fitness_values) / len(fitness_values)
+        }
+    }
+    
+    if any(costo_values):
+        metricas["costo"] = {
+            "mejor": min(c for c in costo_values if c > 0),
+            "peor": max(costo_values),
+            "promedio": sum(costo_values) / len(costo_values)
+        }
+    
+    # Calcular diversidad (desviación estándar del fitness)
+    promedio_fitness = metricas["fitness"]["promedio"]
+    varianza = sum((f - promedio_fitness) ** 2 for f in fitness_values) / len(fitness_values)
+    metricas["diversidad"] = varianza ** 0.5
+    
+    return metricas

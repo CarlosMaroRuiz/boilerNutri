@@ -5,7 +5,7 @@ Estima el tiempo necesario para alcanzar el peso de venta
 basado en la calidad de la formulación.
 """
 
-from conocimiento.razas import obtener_peso_esperado, estimar_dias_hasta_peso
+from conocimiento.razas import  estimar_dias_hasta_peso
 from genetic.fitness.eficiencia import estimar_ganancia_peso_diaria
 
 def estimar_tiempo_peso_objetivo(individuo, peso_actual, peso_objetivo, raza, edad_dias, ingredientes_data):
